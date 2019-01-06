@@ -8,7 +8,19 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+void sighandler(int signum)
+{
+    switch (signum)
+    {
+        /* Prevent zombie processes */
+        case SIGCHLD:
+            printf("yeet");
+            wait(NULL);
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -16,6 +28,8 @@ int main(int argc, char **argv)
     char *port;
     struct addrinfo hints, *servinfo;
     struct sockaddr_storage client_addr;
+
+    signal(SIGCHLD, sighandler);
 
     port = "80";
     if (argc > 1)

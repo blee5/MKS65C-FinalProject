@@ -51,4 +51,8 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Swap files
+.swp
+
+# Compiled binary
 ganache
