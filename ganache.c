@@ -78,7 +78,7 @@ int main(int argc, char **argv)
                 memset(buf, 0, 500);
                 recv(conn_fd, buf, 500, 0);
                 printf("%s\n", buf);
-                char *test_res = "HTTP/1.1 404 Not Found\nContent-Length: 20\nContent-Type: text/html\nConnection: Closed\r\n\r\n<h1>ur mom gay.</h1>";
+                char *test_res = "HTTP/1.1 404 Not Found\nContent-Length: 17\nContent-Type: text/html\nConnection: Closed\r\n\r\n<h1>TEST</h1>";
                 send(conn_fd, test_res, strlen(test_res), 0);
                 exit(0);
             }
