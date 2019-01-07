@@ -29,7 +29,8 @@ int main(int argc, char **argv)
     char *test;
     int t = open("test.html", O_RDONLY);
     test = read_file(t);
-    printf("%s\n", test);
+    printf(" aa %s\n", test);
+
     int sockfd, connfd, addr_size;
     char *port;
 
@@ -146,4 +147,5 @@ char *read_file(int fd)
         len *= 2;
         realloc(buf, len);
     }
+    return buf;
 }
