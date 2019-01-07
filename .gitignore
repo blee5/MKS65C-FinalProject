@@ -52,7 +52,7 @@ Mkfile.old
 dkms.conf
 
 # Swap files
-.swp
+*.swp
 
 # Compiled binary
 ganache

@@ -17,7 +17,6 @@ void sighandler(int signum)
     {
         /* Prevent zombie processes */
         case SIGCHLD:
-            printf("yeet");
             wait(NULL);
     }
 }
@@ -27,7 +26,7 @@ int main(int argc, char **argv)
     int sockfd, status, addr_size, conn_fd;
     char *port;
     struct addrinfo hints, *servinfo;
-    struct sockaddr_storage client_addr;
+    struct sockaddr client_addr;
 
     signal(SIGCHLD, sighandler);
 
@@ -71,7 +70,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    status = listen(sockfd, 1);
+    status = listen(sockfd, 128);
     if (status != 0)
     {
         fprintf(stderr, "error listening to socket: %s\n", strerror(errno));
@@ -81,20 +80,25 @@ int main(int argc, char **argv)
     addr_size = sizeof client_addr;
     for (;;)
     {
-        conn_fd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
-        printf("Accepted a connection.\n");
+        conn_fd = accept(sockfd, &client_addr, &addr_size);
         if (!fork())
         {
+            printf("Accepted new client! [%d]\n", getpid());
             close(sockfd);
             for (;;)
             {
                 char buf[500];
                 memset(buf, 0, 500);
-                recv(conn_fd, buf, 500, 0);
-                printf("%s\n", buf);
-                char *test_res = "HTTP/1.1 404 Not Found\nContent-Length: 17\nContent-Type: text/html\nConnection: Closed\r\n\r\n<h1>TEST</h1>";
+                if (recv(conn_fd, buf, 500, 0) == 0)
+                {
+                    printf("Exiting [%d]\n", getpid());
+                    exit(0);
+                }
+                printf("Received request: [%d]\n", getpid());
+                printf("%s\n", strtok(buf, "\r\n"));
+                /* printf("%s\n", buf); */
+                char *test_res = "HTTP/1.1 200 OK\nConnection: keep-alive\nKeep-Alive: timeout=10\nContent-Length: 31\nContent-Type: text/html\r\n\r\n<h1>TEST</h1><a href=\"\\\">hi</a>";
                 send(conn_fd, test_res, strlen(test_res), 0);
-                exit(0);
             }
         }
         close(conn_fd);
