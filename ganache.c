@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
@@ -10,6 +11,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include "ganache.h"
 
 void sighandler(int signum)
 {
@@ -23,10 +26,12 @@ void sighandler(int signum)
 
 int main(int argc, char **argv)
 {
-    int sockfd, status, addr_size, conn_fd;
+    char *test;
+    int t = open("test.html", O_RDONLY);
+    test = read_file(t);
+    printf("%s\n", test);
+    int sockfd, connfd, addr_size;
     char *port;
-    struct addrinfo hints, *servinfo;
-    struct sockaddr client_addr;
 
     signal(SIGCHLD, sighandler);
 
@@ -35,6 +40,27 @@ int main(int argc, char **argv)
     {
         port = argv[1];
     }
+
+    sockfd = setup_port(port);
+
+    for (;;)
+    {
+        connfd = accept(sockfd, NULL, NULL);
+        if (!fork())
+        {
+            close(sockfd);
+            child_server(connfd);
+        }
+        close(connfd);
+    }
+
+    return 0;
+}
+
+int setup_port(char *port)
+{
+    int status, sockfd;
+    struct addrinfo hints, *servinfo;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -77,32 +103,47 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    addr_size = sizeof client_addr;
+    return sockfd;
+}
+
+void child_server(int sockfd)
+{
+    printf("[%d] Accepted new client!\n", getpid());
     for (;;)
     {
-        conn_fd = accept(sockfd, &client_addr, &addr_size);
-        if (!fork())
+        /* TODO: fix this temp part */
+        char buf[500];
+        memset(buf, 0, 500);
+        if (recv(sockfd, buf, 500, 0) == 0)
         {
-            printf("Accepted new client! [%d]\n", getpid());
-            close(sockfd);
-            for (;;)
-            {
-                char buf[500];
-                memset(buf, 0, 500);
-                if (recv(conn_fd, buf, 500, 0) == 0)
-                {
-                    printf("Exiting [%d]\n", getpid());
-                    exit(0);
-                }
-                printf("Received request: [%d]\n", getpid());
-                printf("%s\n", strtok(buf, "\r\n"));
-                /* printf("%s\n", buf); */
-                char *test_res = "HTTP/1.1 200 OK\nConnection: keep-alive\nKeep-Alive: timeout=10\nContent-Length: 31\nContent-Type: text/html\r\n\r\n<h1>TEST</h1><a href=\"\\\">hi</a>";
-                send(conn_fd, test_res, strlen(test_res), 0);
-            }
+            printf("[%d] Exiting\n", getpid());
+            exit(0);
         }
-        close(conn_fd);
+        printf("[%d] Received request:\n", getpid());
+        printf("%s\n", strtok(buf, "\r\n"));
+        /* printf("%s\n", buf); */
+        char *test_res = "HTTP/1.1 200 OK\nConnection: keep-alive\nKeep-Alive: timeout=10\nContent-Length: 31\nContent-Type: text/html\r\n\r\n<h1>TEST</h1><a href=\"\\\">hi</a>";
+        send(sockfd, test_res, strlen(test_res), 0);
     }
+}
 
-    return 0;
+char *read_file(int fd)
+{
+    size_t len = 10;
+    char *buf = malloc(len);
+    char *p;
+    int read_res;
+    while (read_res == len)
+    {
+        read_res = read(fd, p, 10);
+        p += len;
+        if (read_res < 0)
+        {
+            /* TODO: the server should not quit, but send a response */
+            fprintf(stderr, "error reading frmo file: %s\n", strerror(errno));
+            exit(1);
+        }
+        len *= 2;
+        realloc(buf, len);
+    }
 }

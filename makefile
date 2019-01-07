@@ -1,2 +1,2 @@
-all: ganache.c
-	gcc ganache.c -o ganache
+all: ganache.c ganache.h
+	gcc ganache.c ganache.h -o ganache
