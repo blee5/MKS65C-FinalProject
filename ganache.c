@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -26,12 +27,7 @@ void sighandler(int signum)
 
 int main(int argc, char **argv)
 {
-    char *test;
-    int t = open("test.html", O_RDONLY);
-    test = read_file(t);
-    printf(" aa %s\n", test);
-
-    int sockfd, connfd, addr_size;
+    int sockfd, connfd;
     char *port;
 
     signal(SIGCHLD, sighandler);
@@ -60,6 +56,10 @@ int main(int argc, char **argv)
 
 int setup_port(char *port)
 {
+    /*
+     * Creates, binds, and listens to the given port.
+     * Returns a file descriptor to the port created.
+     */
     int status, sockfd;
     struct addrinfo hints, *servinfo;
 
@@ -78,7 +78,7 @@ int setup_port(char *port)
     sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
     if (sockfd < 0)
     {
-        fprintf(stderr, "error creating socket: %s\n", strerror(errno));
+        fprintf(stderr, "error creating sockfd: %s\n", strerror(errno));
         exit(1);
     }
 
@@ -93,14 +93,14 @@ int setup_port(char *port)
     status = bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
     if (status != 0)
     {
-        fprintf(stderr, "error binding to socket: %s\n", strerror(errno));
+        fprintf(stderr, "error binding to sockfd: %s\n", strerror(errno));
         exit(1);
     }
 
     status = listen(sockfd, 128);
     if (status != 0)
     {
-        fprintf(stderr, "error listening to socket: %s\n", strerror(errno));
+        fprintf(stderr, "error listening to sockfd: %s\n", strerror(errno));
         exit(1);
     }
 
@@ -115,37 +115,36 @@ void child_server(int sockfd)
         /* TODO: fix this temp part */
         char buf[500];
         memset(buf, 0, 500);
-        if (recv(sockfd, buf, 500, 0) == 0)
+        if (read(sockfd, buf, 500) == 0)
         {
             printf("[%d] Exiting\n", getpid());
             exit(0);
         }
         printf("[%d] Received request:\n", getpid());
         printf("%s\n", strtok(buf, "\r\n"));
-        /* printf("%s\n", buf); */
-        char *test_res = "HTTP/1.1 200 OK\nConnection: keep-alive\nKeep-Alive: timeout=10\nContent-Length: 31\nContent-Type: text/html\r\n\r\n<h1>TEST</h1><a href=\"\\\">hi</a>";
-        send(sockfd, test_res, strlen(test_res), 0);
+
+        char *body;
+        int body_length;
+        body_length = read_file("test.html", &body);
+        sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: text/html\r\n\r\n", body_length);
+
+        write(sockfd, buf, strlen(buf));
+        write(sockfd, body, body_length);
     }
 }
 
-char *read_file(int fd)
+int read_file(const char *filename, char **dest)
 {
-    size_t len = 10;
-    char *buf = malloc(len);
-    char *p;
-    int read_res;
-    while (read_res == len)
-    {
-        read_res = read(fd, p, 10);
-        p += len;
-        if (read_res < 0)
-        {
-            /* TODO: the server should not quit, but send a response */
-            fprintf(stderr, "error reading frmo file: %s\n", strerror(errno));
-            exit(1);
-        }
-        len *= 2;
-        realloc(buf, len);
-    }
-    return buf;
+    /*
+     * Opens a file and writes it to a string pointed by dest.
+     *
+     * Returns size of the file in bytes.
+     */
+    int fd = open(filename, O_RDONLY);
+    struct stat s;
+    fstat(fd, &s);
+    size_t filesize = s.st_size;
+    *dest = malloc(filesize);
+    read(fd, *dest, filesize);
+    return filesize;
 }
