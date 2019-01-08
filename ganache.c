@@ -40,6 +40,7 @@ int main(int argc, char **argv)
 
     sockfd = setup_port(port);
 
+    printf("Setup complete, starting server on port %s\n", port);
     for (;;)
     {
         connfd = accept(sockfd, NULL, NULL);
@@ -82,13 +83,13 @@ int setup_port(char *port)
         exit(1);
     }
 
-    /* Tell system we're okay with using a port that's in TIME_WAIT */
-    int yes = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
+    /* Yes, let me just use the socket that's in TIME_WAIT */
+    int yes=1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
     {
-        fprintf(stderr, "setsockopt error: %s\n", strerror(errno));
+        fprintf(stderr, "error setting socket option: %s\n", strerror(errno));
         exit(1);
-    }
+    } 
 
     status = bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
     if (status != 0)
@@ -112,7 +113,7 @@ void child_server(int sockfd)
     printf("[%d] Accepted new client!\n", getpid());
     for (;;)
     {
-        /* TODO: fix this temp part */
+        /* TODO: Fix this and put it into a function */
         char buf[500];
         memset(buf, 0, 500);
         if (read(sockfd, buf, 500) == 0)
@@ -123,10 +124,21 @@ void child_server(int sockfd)
         printf("[%d] Received request:\n", getpid());
         printf("%s\n", strtok(buf, "\r\n"));
 
+        /* TODO: Replace this placeholder response */
         char *body;
         int body_length;
-        body_length = read_file("test.html", &body);
-        sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: text/html\r\n\r\n", body_length);
+
+        /* This is just temporary please don't be mad I just wanted to see a chicken */
+        if (strcmp(buf, "GET /chicken.png HTTP/1.1") == 0)
+        {
+            body_length = read_file("chicken.png", &body);
+            sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: image/png\r\n\r\n", body_length);
+        }
+        else
+        {
+            body_length = read_file("index.html", &body);
+            sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: text/html\r\n\r\n", body_length);
+        }
 
         write(sockfd, buf, strlen(buf));
         write(sockfd, body, body_length);
@@ -139,11 +151,19 @@ int read_file(const char *filename, char **dest)
      * Opens a file and writes it to a string pointed by dest.
      *
      * Returns size of the file in bytes.
+     * Returns -1 if an error occurs.
      */
     int fd = open(filename, O_RDONLY);
+    if (fd < 0)
+    {
+        return -1;
+    }
     struct stat s;
+    size_t filesize;
+
     fstat(fd, &s);
-    size_t filesize = s.st_size;
+    filesize = s.st_size;
+
     *dest = malloc(filesize);
     read(fd, *dest, filesize);
     return filesize;
