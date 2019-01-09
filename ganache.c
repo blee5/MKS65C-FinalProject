@@ -14,6 +14,9 @@
 #include <unistd.h>
 
 #include "ganache.h"
+#include "hashtable.h"
+
+#define MAX_REQ_SIZE 500
 
 void sighandler(int signum)
 {
@@ -72,64 +75,73 @@ int setup_port(char *port)
     status = getaddrinfo(NULL, port, &hints, &servinfo);
     if (status != 0)
     {
-        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+        fprintf(stderr, "error getting address info: %s\n", gai_strerror(status));
         exit(1);
     }
 
     sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
     if (sockfd < 0)
     {
-        fprintf(stderr, "error creating sockfd: %s\n", strerror(errno));
+        report_error("error opening socket");
         exit(1);
     }
 
     /* Yes, let me just use the socket that's in TIME_WAIT */
-    int yes=1;
+    int yes = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
     {
-        fprintf(stderr, "error setting socket option: %s\n", strerror(errno));
+        report_error("error setting socket option");
         exit(1);
     } 
 
     status = bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
     if (status != 0)
     {
-        fprintf(stderr, "error binding to sockfd: %s\n", strerror(errno));
+        report_error("error binding to socket");
         exit(1);
     }
 
     status = listen(sockfd, 128);
     if (status != 0)
     {
-        fprintf(stderr, "error listening to sockfd: %s\n", strerror(errno));
+        report_error("error listening to socket");
         exit(1);
     }
 
+    free(servinfo);
     return sockfd;
 }
 
 void child_server(int sockfd)
 {
+    int status;
     printf("[%d] Accepted new client!\n", getpid());
     for (;;)
     {
-        /* TODO: Fix this and put it into a function */
-        char buf[500];
-        memset(buf, 0, 500);
-        if (read(sockfd, buf, 500) == 0)
+        char request[MAX_REQ_SIZE];
+        status = read(sockfd, request, MAX_REQ_SIZE);
+
+        if (status <= 0)
         {
+            if (status < 0)
+            {
+                fprintf(stderr, "error reading from socket: %s\n", strerror(errno));
+            }
             printf("[%d] Exiting\n", getpid());
             exit(0);
         }
-        printf("[%d] Received request:\n", getpid());
-        printf("%s\n", strtok(buf, "\r\n"));
 
-        /* TODO: Replace this placeholder response */
+        char buf[500];
+        printf("[%d] Received request:\n", getpid());
+        printf("%s\n", strtok(request, "\r\n"));
+        
         char *body;
         int body_length;
 
+        /* TODO: Replace this placeholder response */
+
         /* This is just temporary please don't be mad I just wanted to see a chicken */
-        if (strcmp(buf, "GET /chicken.png HTTP/1.1") == 0)
+        if (strcmp(request, "GET /chicken.png HTTP/1.1") == 0)
         {
             body_length = read_file("chicken.png", &body);
             sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: image/png\r\n\r\n", body_length);
@@ -142,6 +154,7 @@ void child_server(int sockfd)
 
         write(sockfd, buf, strlen(buf));
         write(sockfd, body, body_length);
+        free(body);
     }
 }
 
@@ -149,22 +162,38 @@ int read_file(const char *filename, char **dest)
 {
     /*
      * Opens a file and writes it to a string pointed by dest.
+     * MAKE SURE TO FREE THE STRING!!
      *
      * Returns size of the file in bytes.
      * Returns -1 if an error occurs.
      */
     int fd = open(filename, O_RDONLY);
+    struct stat s;
+    int filesize;
+
     if (fd < 0)
     {
         return -1;
     }
-    struct stat s;
-    size_t filesize;
 
     fstat(fd, &s);
     filesize = s.st_size;
 
     *dest = malloc(filesize);
-    read(fd, *dest, filesize);
+    if (*dest == NULL)
+    {
+        report_error("could not allocate memory");
+        return -1;
+    }
+    if (read(fd, *dest, filesize) < 0)
+    {
+        report_error("could not read file");
+        return -1;
+    }
     return filesize;
+}
+
+void report_error(const char *msg)
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
 }
