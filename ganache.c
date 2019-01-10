@@ -1,14 +1,18 @@
+/*
+ * ganache.c
+ * 
+ * A simple and bad HTTP server.
+ */
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -16,6 +20,7 @@
 
 #include "ganache.h"
 #include "hashtable.h"
+#include "files.h"
 #include "util.h"
 
 #define MAX_REQ_SIZE 500
@@ -77,14 +82,14 @@ int setup_port(char *port)
     status = getaddrinfo(NULL, port, &hints, &servinfo);
     if (status != 0)
     {
-        fprintf(stderr, "error getting address info: %s\n", gai_strerror(status));
+        fprintf(stderr, "could not address info: %s\n", gai_strerror(status));
         exit(1);
     }
 
     sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
     if (sockfd < 0)
     {
-        report_error("error opening socket");
+        report_error("could not open socket");
         exit(1);
     }
 
@@ -92,21 +97,21 @@ int setup_port(char *port)
     int yes = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
     {
-        report_error("error setting socket option");
+        report_error("could not set socket option");
         exit(1);
     } 
 
     status = bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
     if (status != 0)
     {
-        report_error("error binding to socket");
+        report_error("could not bind to socket");
         exit(1);
     }
 
     status = listen(sockfd, 128);
     if (status != 0)
     {
-        report_error("error listening to socket");
+        report_error("could not listen to socket");
         exit(1);
     }
 
@@ -166,7 +171,7 @@ void child_server(int sockfd)
              */
             if (status < 0)
             {
-                fprintf(stderr, "error reading from socket: %s\n", strerror(errno));
+                fprintf(stderr, "could not read from socket: %s\n", strerror(errno));
             }
             exit(0);
         }
@@ -178,15 +183,16 @@ void child_server(int sockfd)
                              getval(req_dict, "Version"));
 
         path = getval(req_dict, "File");
-        
-        body_length = read_file(path, &body);
-        if (body_length < 0)
+
+        int fd = open_file(path);
+        if (fd < 0)
         {
             char *msg = "HTTP/1.1 404 Not Found\r\nContent-Length: 22\r\n\r\n<h1>404 Not Found</h1>";
             write(sockfd, msg, strlen(msg));
         }
         else
         {
+            body_length = read_file(fd, &body);
             sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: text/html\r\n\r\n", body_length);
 
             write(sockfd, buf, strlen(buf));
@@ -195,61 +201,4 @@ void child_server(int sockfd)
         }
         free_ht(req_dict);
     }
-}
-
-int read_file(const char *path, char **dest)
-{
-    /*
-     * Opens a file and writes it to a string pointed by dest.
-     * MAKE SURE TO FREE THE STRING!!
-     *
-     * If path is a directory, index.html in that file is read instead.
-     *
-     * Returns size of the file in bytes.
-     * Returns -1 if an error occurs.
-     */
-    char *filepath = malloc(PATH_MAX + strlen(path));
-    getcwd(filepath, PATH_MAX);
-    strcat(filepath, path);
-    int filesize;
-    struct stat s;
-    int fd; 
-    *dest = NULL;
-
-    if ((fd = open(filepath, O_RDONLY)) < 0)
-    {
-        report_error("could not open file");
-        free(filepath);
-        return -1;
-    }
-    free(filepath);
-
-    fstat(fd, &s);
-    /* Is directory, default to index.html */
-    if (S_ISDIR(s.st_mode))
-    {
-        if ((fd = openat(fd, "index.html", O_RDONLY)) < 0)
-        {
-            report_error("could not open file");
-            return -1;
-        }
-    }
-
-    fstat(fd, &s);
-    filesize = s.st_size;
-
-    *dest = malloc(filesize);
-    if (*dest == NULL)
-    {
-        report_error("could not allocate memory");
-        return -1;
-    }
-    if (read(fd, *dest, filesize) < 0)
-    {
-        report_error("could not read file");
-        free(*dest);
-        return -1;
-    }
-
-    return filesize;
 }

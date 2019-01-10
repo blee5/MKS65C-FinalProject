@@ -1,8 +1,5 @@
 # ganache
 
-ganache is a simple web server written in C.
-By default, it will listen to port 80 (used for HTTP port).
-Note that ports under 1024 are privileged and require root permissions.    
+ganache is a simple static web server written in C for the Systems Level Programming class at Stuyvesant High School. It (attempts to) implement HTTP/1.1.
 
-Run the server in the commandline by:
-`./ganache <port>`
+Currenty WIP

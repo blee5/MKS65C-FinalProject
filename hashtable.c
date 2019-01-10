@@ -1,10 +1,19 @@
+/*
+ * hashtable.c
+ * 
+ * Implementation of a hash table (dictionary)
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "hashtable.h"
 
-#define DEF_SIZE 1024 // size of internal list in the hash table
+/*
+ * Size of internal array in hash table.
+ */
+#define DEF_SIZE 1024
 
 struct node
 {
