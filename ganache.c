@@ -51,11 +51,11 @@ void read_opts(int argc, char **argv, char **port, char **rootpath)
                 *rootpath = optarg;
                 break;
             case ':':
-                printf("option requires an argument: '%c'\n", optopt);
+                fprintf(stderr, "option requires an argument: '%c'\n", optopt);
                 exit(-1);
             case '?':
-                printf("invalid option -%c\n", optopt);
-                printf("Supported options:\n-p [port]\n-r [path]\n");
+                fprintf(stderr, "invalid option -%c\n", optopt);
+                fprintf(stderr, "Supported options:\n-p [port]\n-r [path]\n");
                 exit(-1);
         }
     }
@@ -69,6 +69,11 @@ int main(int argc, char **argv)
 
     signal(SIGCHLD, sighandler);
     read_opts(argc, argv, &port, &rootpath);
+    if (optind != argc)
+    {
+        fprintf(stderr, "unexpected arguments\n");
+        exit(-1);
+    }
     if (rootpath != NULL && chdir(rootpath) < 0)
     {
         report_error("could not open root directory of site");
