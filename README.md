@@ -7,10 +7,4 @@ ganache is a simple static web server written in C for the Systems Level Program
 Simply run through the command line:
 `ganache`
 
-By default, it will open port 80 (HTTP) and use the current working directory as the root directory for the site.
-
-Command line options that are currently supported are:
-```
--r [path]    set root directory of website to path
--p [port]    specify which port should be used
-```
+By default, it will open port 80 (HTTP); the port can be changed with a command line argument. For example, `ganache 3003` will open port 3003.

@@ -59,6 +59,10 @@ size_t get_index(struct hashtable *ht, const char *key)
 
 char *getval(struct hashtable *ht, const char *key)
 {
+    /*
+     * Get value from a key-value pair.
+     * Returns NLUL if not found.
+     */
     size_t i = get_index(ht, key);
     struct node *n;
 
@@ -79,6 +83,9 @@ char *getval(struct hashtable *ht, const char *key)
 
 void insert(struct hashtable *ht, const char *key, const char *value)
 {
+    /*
+     * Inserts a key-value pair. If the key already exists, it updates the value.
+     */
     size_t i = get_index(ht, key);
     struct node *n;
     if (ht->lists[i] == NULL)

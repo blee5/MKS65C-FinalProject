@@ -1,9 +1,7 @@
 /*
  * util.c
  * 
- * Generic utility functions.
- *
- * Currently mostly empty because I realized other functions I put here were unnecessary.
+ * Utility functions.
  */
 
 #define KNRM "\x1B[0m"

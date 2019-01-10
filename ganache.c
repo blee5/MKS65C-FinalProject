@@ -20,6 +20,7 @@
 
 #include "ganache.h"
 #include "hashtable.h"
+#include "requests.h"
 #include "files.h"
 #include "util.h"
 
@@ -35,48 +36,19 @@ void sighandler(int signum)
     }
 }
 
-void read_opts(int argc, char **argv, char **port, char **rootpath)
-{
-    int opt;
-
-    while ((opt = getopt(argc, argv, ":p:r:")) != -1)
-    {
-        opterr = 1;
-        switch (opt)
-        {
-            case 'p':
-                *port = optarg;
-                break;
-            case 'r':
-                *rootpath = optarg;
-                break;
-            case ':':
-                fprintf(stderr, "option requires an argument: '%c'\n", optopt);
-                exit(-1);
-            case '?':
-                fprintf(stderr, "invalid option -%c\n", optopt);
-                fprintf(stderr, "Supported options:\n-p [port]\n-r [path]\n");
-                exit(-1);
-        }
-    }
-}
-
 int main(int argc, char **argv)
 {
     int sockfd, connfd;
     char *port = "80";
-    char *rootpath = NULL;
 
     signal(SIGCHLD, sighandler);
-    read_opts(argc, argv, &port, &rootpath);
-    if (optind != argc)
+    if (argc > 1)
     {
-        fprintf(stderr, "unexpected arguments\n");
-        exit(-1);
+        port = argv[1];
     }
-    if (rootpath != NULL && chdir(rootpath) < 0)
+    if (chdir("www") < 0)
     {
-        report_error("could not open root directory of site");
+        report_error("could not find /www");
         exit(-1);
     }
     sockfd = setup_port(port);
@@ -150,42 +122,13 @@ int setup_port(char *port)
     return sockfd;
 }
 
-int parse_request(struct hashtable *ht, char *request)
-{
-    /*
-     * Parses an HTTP request and inserts key-value pairs into *ht.
-     */
-    char *line;
-    char *key;
-
-    /* Parse first line */
-    line = strsep(&request, "\n");
-    *strchr(line, '\r') = 0;
-    insert(ht, "Method", strsep(&line, " "));
-    insert(ht, "File", strsep(&line, " "));
-    insert(ht, "Version", line);
-
-    for (;;)
-    {
-        line = strsep(&request, "\n");
-        *strchr(line, '\r') = 0;
-        key = strsep(&line, ": "); // line now points to the value
-        if (line == NULL)
-        {
-            break;
-        }
-        insert(ht, key, line);
-    }
-    return 0;
-}
-
 void child_server(int sockfd)
 {
     char *buf = malloc(MAX_REQ_SIZE + 1);
     char *path, *body, *temp;
     int status;
     int body_length;
-    struct hashtable *req_dict;
+    struct packet p = {0};
     /* Buffer overflow protection */
     buf[MAX_REQ_SIZE] = 0;
     for (;;)
@@ -207,13 +150,10 @@ void child_server(int sockfd)
             exit(0);
         }
 
-        req_dict = init_ht();
-        parse_request(req_dict, temp);
-        printf("%s %s %s\n", getval(req_dict, "Method"),
-                             getval(req_dict, "File"),
-                             getval(req_dict, "Version"));
+        parse_req(&p, temp);
+        printf("%s %s %s\n", p.method, p.file, p.version);
 
-        path = getval(req_dict, "File");
+        path = p.file;
 
         int fd = open_file(path);
         if (fd < 0)
@@ -230,6 +170,5 @@ void child_server(int sockfd)
             write(sockfd, body, body_length);
             free(body);
         }
-        free_ht(req_dict);
     }
 }
