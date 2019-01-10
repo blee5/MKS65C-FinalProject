@@ -4,6 +4,8 @@
 
 #include "hashtable.h"
 
+#define DEF_SIZE 1024 // size of internal list in the hash table
+
 struct node
 {
     char *key;
@@ -17,12 +19,12 @@ struct hashtable
     struct node **lists;
 };
 
-struct hashtable *create_ht(size_t size)
+struct hashtable *init_ht()
 {
-    // TODO: error handling
+    // TODO: error handling if allocation fails
     struct hashtable *ht = malloc(sizeof(struct hashtable));
-    ht->lists = calloc(sizeof(struct node*), size);
-    ht->size = size;
+    ht->lists = calloc(sizeof(struct node*), DEF_SIZE);
+    ht->size = DEF_SIZE;
     return ht;
 }
 
@@ -53,7 +55,7 @@ char *getval(struct hashtable *ht, const char *key)
 
     if (ht->lists[i] == NULL)
     {
-        return "yo";
+        return NULL;
     }
 
     for (n = ht->lists[i]; n != NULL; n = n->next)
@@ -77,10 +79,18 @@ void insert(struct hashtable *ht, const char *key, const char *value)
     }
     else
     {
-        for (n = ht->lists[i]; n->next != NULL; n = n->next);
+        for (n = ht->lists[i]; n->next != NULL; n = n->next)
+        {
+            if (strcmp(n->key, key) == 0)
+            {
+                /* Modify existing value instead*/
+                goto end;
+            }
+        }
         n->next = malloc(sizeof(struct node));
         n = n->next;
     }
+    end:
     n->key = strdup(key);
     n->value = strdup(value);
     n->next = NULL;
@@ -100,6 +110,9 @@ void free_list(struct node *n)
 
 void free_ht(struct hashtable *ht)
 {
+    /*
+     * Completely frees a hash table.
+     */
     size_t size = ht->size, i = 0;
     struct node *list;
     while (i < size)
