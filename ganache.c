@@ -35,19 +35,45 @@ void sighandler(int signum)
     }
 }
 
+void read_opts(int argc, char **argv, char **port, char **rootpath)
+{
+    int opt;
+
+    while ((opt = getopt(argc, argv, ":p:r:")) != -1)
+    {
+        opterr = 1;
+        switch (opt)
+        {
+            case 'p':
+                *port = optarg;
+                break;
+            case 'r':
+                *rootpath = optarg;
+                break;
+            case ':':
+                printf("option requires an argument: '%c'\n", optopt);
+                exit(-1);
+            case '?':
+                printf("invalid option -%c\n", optopt);
+                printf("Supported options:\n-p [port]\n-r [path]\n");
+                exit(-1);
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     int sockfd, connfd;
-    char *port;
+    char *port = "80";
+    char *rootpath = NULL;
 
     signal(SIGCHLD, sighandler);
-
-    port = "3003";
-    if (argc > 1)
+    read_opts(argc, argv, &port, &rootpath);
+    if (rootpath != NULL && chdir(rootpath) < 0)
     {
-        port = argv[1];
+        report_error("could not open root directory of site");
+        exit(-1);
     }
-
     sockfd = setup_port(port);
 
     printf("Setup complete, starting server on port %s\n", port);
