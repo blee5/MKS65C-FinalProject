@@ -14,7 +14,7 @@
 
 #include "util.h"
 
-int open_file(const char *path)
+long open_file(const char *path)
 {
     /*
      * Open a file. Yay.

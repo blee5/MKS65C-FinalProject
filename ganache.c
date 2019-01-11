@@ -21,7 +21,6 @@
 #include "ganache.h"
 #include "hashtable.h"
 #include "requests.h"
-#include "files.h"
 #include "util.h"
 
 #define MAX_REQ_SIZE 500
@@ -125,10 +124,10 @@ int setup_port(char *port)
 void child_server(int sockfd)
 {
     char *buf = malloc(MAX_REQ_SIZE + 1);
-    char *path, *body, *temp;
+    char *temp;
     int status;
-    int body_length;
-    struct packet p = {0};
+    struct packet request = {0};
+    struct packet response = {0};
     /* Buffer overflow protection */
     buf[MAX_REQ_SIZE] = 0;
     for (;;)
@@ -150,25 +149,10 @@ void child_server(int sockfd)
             exit(0);
         }
 
-        parse_req(&p, temp);
-        printf("%s %s %s\n", p.method, p.file, p.version);
+        parse_req(&request, temp);
+        printf("%s %s %s\n", request.method, request.file, request.version);
 
-        path = p.file;
-
-        int fd = open_file(path);
-        if (fd < 0)
-        {
-            char *msg = "HTTP/1.1 404 Not Found\r\nContent-Length: 22\r\n\r\n<h1>404 Not Found</h1>";
-            write(sockfd, msg, strlen(msg));
-        }
-        else
-        {
-            body_length = read_file(fd, &body);
-            sprintf(buf, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\nContent-Type: text/html\r\n\r\n", body_length);
-
-            write(sockfd, buf, strlen(buf));
-            write(sockfd, body, body_length);
-            free(body);
-        }
+        prep_resp(sockfd, &request, &response);
+        send_resp(sockfd, &response);
     }
 }
