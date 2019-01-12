@@ -27,6 +27,7 @@ long open_file(const char *path)
      */
     char *filepath = malloc(PATH_MAX + strlen(path));
     getcwd(filepath, PATH_MAX);
+    strcat(filepath, "/www");
     strcat(filepath, path);
     struct stat s;
     int fd;

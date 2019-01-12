@@ -35,8 +35,9 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
         {
             case -ENOENT:
                 strcpy(response->status, "404 Not Found");
-                fd = open_file("/../error/404NotFound.html");
+                fd = open_file("/error/404NotFound.html");
                 load_body(response, fd);
+                insert(response->fields, "Content-Type", "text/html");
         }
     }
     else
@@ -50,12 +51,25 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
 
 int send_resp(int sockfd, struct packet *response)
 {
-    /* temp placeholder, TODO: unpack dict to str */
     long body_length = strtol(getval(response->fields, "Content-Length"), NULL, 10); 
     dprintf(sockfd, "%s %s\r\n",
         response->version, response->status);
-    dprintf(sockfd, "%s: %ld\r\n",
-        "Content-Length", body_length);
+
+    /* Unpack dict */
+    int i, size = response->fields->size;
+    struct node *n;
+    for (i = 0; i < size; i++)
+    {
+        n = response->fields->lists[i];
+        if (n != NULL)
+        {
+            do
+            {
+                dprintf(sockfd, "%s: %s\r\n", n->key, n->value);
+            }
+            while ((n = n->next) != NULL);
+        }
+    }
 
     write(sockfd, "\r\n", 2);
     write(sockfd, response->body, body_length);

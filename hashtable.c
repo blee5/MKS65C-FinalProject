@@ -15,19 +15,6 @@
  */
 #define DEF_SIZE 1024
 
-struct node
-{
-    char *key;
-    char *value;
-    struct node *next;
-};
-
-struct hashtable
-{
-    ssize_t size;
-    struct node **lists;
-};
-
 struct hashtable *init_ht()
 {
     // TODO: error handling if allocation fails

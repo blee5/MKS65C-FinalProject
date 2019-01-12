@@ -43,11 +43,6 @@ int main(int argc, char **argv)
     {
         port = argv[1];
     }
-    if (chdir("www") < 0)
-    {
-        report_error("could not find /www");
-        exit(-1);
-    }
     sockfd = setup_port(port);
 
     printf("Setup complete, starting server on port %s\n", port);

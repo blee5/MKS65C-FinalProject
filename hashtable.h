@@ -1,4 +1,16 @@
-#include <stddef.h>
+struct node
+{
+    char *key;
+    char *value;
+    struct node *next;
+};
+
+struct hashtable
+{
+    ssize_t size;
+    struct node **lists;
+};
+
 
 struct hashtable *init_ht();
 unsigned long hash(const char *str);
