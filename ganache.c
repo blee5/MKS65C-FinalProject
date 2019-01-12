@@ -5,8 +5,6 @@
  */
 
 #include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
@@ -144,13 +142,13 @@ void child_server(int sockfd)
              */
             if (status < 0)
             {
-                fprintf(stderr, "could not read from socket: %s\n", strerror(errno));
+                report_error("could not read from socket");
             }
             exit(0);
         }
 
         parse_req(&request, temp);
-        printf("%s %s %s\n", request.method, request.file, request.version);
+        printf("%s %s %s - " , request.method, request.file, request.version);
 
         prep_resp(sockfd, &request, &response);
         send_resp(sockfd, &response);

@@ -4,6 +4,7 @@
  * Deals with HTTP requests (and responses, what a misleading name)
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,25 +14,35 @@
 #include "requests.h"
 #include "files.h"
 
+void load_body(struct packet *response, int fd)
+{
+    char buffer[255];
+    long body_length;
+    body_length = read_file(fd, &response->body);
+    snprintf(buffer, 255, "%ld", body_length);
+    insert(response->fields, "Content-Length", buffer);
+}
+
 int prep_resp(int sockfd, struct packet *request, struct packet *response)
 {
-    char buffer[100]; //  
-    long body_length;
     int fd = open_file(request->file);
     clear_packet(response);
     
     strcpy(response->version, "HTTP/1.1");
     if (fd < 0)
     {
-        strcpy(response->status, "404 Not Found");
+        switch (fd)
+        {
+            case -ENOENT:
+                strcpy(response->status, "404 Not Found");
+                fd = open_file("/../error/404NotFound.html");
+                load_body(response, fd);
+        }
     }
     else
     {
-        body_length = read_file(fd, &response->body);
-        /* Convert body_length in long to a string */
-        snprintf(buffer, 100, "%ld", body_length);
-        insert(response->fields, "Content-Length", buffer);
         strcpy(response->status, "200 OK");
+        load_body(response, fd);
     }
     insert(response->fields, "Keep-Alive", "timeout=10");
     return 0;
@@ -40,13 +51,15 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
 int send_resp(int sockfd, struct packet *response)
 {
     /* temp placeholder, TODO: unpack dict to str */
-    char *body_length = getval(response->fields, "Content-Length"); 
+    long body_length = strtol(getval(response->fields, "Content-Length"), NULL, 10); 
     dprintf(sockfd, "%s %s\r\n",
         response->version, response->status);
-    dprintf(sockfd, "%s: %s\r\n",
+    dprintf(sockfd, "%s: %ld\r\n",
         "Content-Length", body_length);
+
     write(sockfd, "\r\n", 2);
-    write(sockfd, response->body, strtol(body_length, NULL, 10));
+    write(sockfd, response->body, body_length);
+    printf("%s\n", response->status);
     return 0;
 }
 
@@ -57,6 +70,7 @@ int parse_req(struct packet *p, char *request)
      */
     char *line;
     char *key;
+    char *temp;
 
     /* Clear any preexisting data  */
     clear_packet(p);
@@ -65,7 +79,10 @@ int parse_req(struct packet *p, char *request)
 
     /* Parse first line */
     line = strsep(&request, "\n");
-    *strchr(line, '\r') = 0;
+    if ((temp = strchr(line, '\r')) != NULL)
+    {
+        *temp = 0;
+    }
     strcpy(p->method, strsep(&line, " "));
     strcpy(p->file, strsep(&line, " "));
     strcpy(p->version, line);
@@ -73,7 +90,10 @@ int parse_req(struct packet *p, char *request)
     for (;;)
     {
         line = strsep(&request, "\n");
-        *strchr(line, '\r') = 0;
+        if ((temp = strchr(line, '\r')) != NULL)
+        {
+            *temp = 0;
+        }
         key = strsep(&line, ": "); // line now points to the value
         if (line == NULL)
         {

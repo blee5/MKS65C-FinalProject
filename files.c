@@ -4,6 +4,7 @@
  * Functions dealing with files.
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -32,9 +33,13 @@ long open_file(const char *path)
 
     if ((fd = open(filepath, O_RDONLY)) < 0)
     {
-        report_error("could not open file");
+        /* We don't need to report file not existing */
+        if (errno != ENOENT)
+        {
+            report_error("could not open file");
+        }
         free(filepath);
-        return -1;
+        return -errno;
     }
     free(filepath);
 
