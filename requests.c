@@ -5,6 +5,7 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,7 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
         {
             case -ENOENT:
                 strcpy(response->status, "404 Not Found");
-                fd = open_file("/error/404NotFound.html");
+                fd = open("error/404NotFound.html", O_RDONLY);
                 load_body(response, fd);
                 insert(response->fields, "Content-Type", "text/html");
         }
