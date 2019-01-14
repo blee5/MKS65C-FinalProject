@@ -1,8 +1,10 @@
+#include <limit.h>
+
 struct packet
 {
     char method[255];
     char status[255];
-    char file[255];
+    char file[PATH_MAX];
     char version[255];
     struct hashtable *fields; 
     char *body;

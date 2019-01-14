@@ -1,3 +1,4 @@
 long open_file(const char *path);
-int read_file(int fd, char **dest);
+int write_file(int sockfd, const char *path);
 char *get_type(const char *filename);
+long get_size(int fd);

@@ -28,9 +28,8 @@ long open_file(const char *path)
      * Returns the file's descriptor on success.
      * Returns -1 if an error occurs.
      */
-    char *filepath = malloc(PATH_MAX + strlen(path));
+    char filepath[PATH_MAX + strlen(path)];
     getcwd(filepath, PATH_MAX);
-    strcat(filepath, "/www");
     strcat(filepath, path);
     struct stat s;
     int fd;
@@ -45,7 +44,6 @@ long open_file(const char *path)
         free(filepath);
         return -errno;
     }
-    free(filepath);
 
     fstat(fd, &s);
     /* Is directory, default to index.html */
@@ -61,36 +59,55 @@ long open_file(const char *path)
     return fd;
 }
 
-int read_file(int fd, char **dest)
+long get_size(int fd)
 {
     /*
-     * Reads contents file into a string pointed by**dest.
-     * MAKE SURE TO FREE THE STRING!!
-     *
-     * Returns size of the file in bytes.
+     * Get size of a file in bytes.
      * Returns -1 if an error occurs.
      */
-    int filesize;
     struct stat s;
-    *dest = NULL;
 
-    fstat(fd, &s);
-    filesize = s.st_size;
-
-    *dest = malloc(filesize);
-    if (*dest == NULL)
+    if (fstat(fd, &s) < 0)
     {
-        report_error("could not allocate memory");
+        /* We don't need to report file not existing */
+        if (errno != ENOENT)
+        {
+            report_error("could not open file");
+        }
         return -1;
     }
-    if (read(fd, *dest, filesize) < 0)
+    return s.st_size;
+}
+
+int write_file(int sockfd, const char *path)
+{
+    /*
+     * Write a file to a socket
+     */
+    int CHUNK_SIZE = 500;
+    char buf[CHUNK_SIZE];
+    int bytes_read;
+    int fd = open_file(path);
+    if (fd < 0)
     {
-        report_error("could not read file");
-        free(*dest);
         return -1;
     }
 
-    return filesize;
+    do
+    {
+        bytes_read = read(fd, buf, CHUNK_SIZE);
+        /* printf("%d\n", bytes_read); */
+        /* printf("%s\n", buf); */
+        if (bytes_read < 0)
+        {
+            report_error("could not read file");
+            return -1;
+        }
+        write(sockfd, buf, CHUNK_SIZE);
+    }
+    while (bytes_read == CHUNK_SIZE);
+
+    return 0;
 }
 
 char *get_type(const char *filename)

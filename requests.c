@@ -15,19 +15,15 @@
 #include "requests.h"
 #include "files.h"
 
-void load_body(struct packet *response, int fd)
-{
-    char buffer[255];
-    long body_length;
-    body_length = read_file(fd, &response->body);
-    snprintf(buffer, 255, "%ld", body_length);
-    insert(response->fields, "Content-Length", buffer);
-}
-
 int prep_resp(int sockfd, struct packet *request, struct packet *response)
 {
-    int fd = open_file(request->file);
     clear_packet(response);
+
+    char buffer[255];
+    long body_length;
+    strcpy(response->file, "/www");
+    strcat(response->file, request->file);
+    int fd = open_file(response->file);
     
     strcpy(response->version, "HTTP/1.1");
     if (fd < 0)
@@ -36,8 +32,7 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
         {
             case -ENOENT:
                 strcpy(response->status, "404 Not Found");
-                fd = open("error/404NotFound.html", O_RDONLY);
-                load_body(response, fd);
+                strcpy(request->file, "error/404NotFound.html");
                 insert(response->fields, "Content-Type", "text/html");
         }
     }
@@ -45,15 +40,16 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
     {
         strcpy(response->status, "200 OK");
         insert(response->fields, "Content-Type", get_type(request->file));
-        load_body(response, fd);
     }
+    body_length = get_size(fd);
+    snprintf(buffer, 255, "%ld", body_length);
+    insert(response->fields, "Content-Length", buffer);
     insert(response->fields, "Keep-Alive", "timeout=10");
     return 0;
 }
 
 int send_resp(int sockfd, struct packet *response)
 {
-    long body_length = strtol(getval(response->fields, "Content-Length"), NULL, 10); 
     dprintf(sockfd, "%s %s\r\n",
         response->version, response->status);
 
@@ -74,8 +70,7 @@ int send_resp(int sockfd, struct packet *response)
     }
 
     write(sockfd, "\r\n", 2);
-    write(sockfd, response->body, body_length);
-    free(response->body);
+    write_file(sockfd, response->file);
     printf("%s\n", response->status);
     return 0;
 }
