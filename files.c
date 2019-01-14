@@ -41,7 +41,6 @@ long open_file(const char *path)
         {
             report_error("could not open file");
         }
-        free(filepath);
         return -errno;
     }
 
@@ -82,7 +81,7 @@ long get_size(int fd)
 int write_file(int sockfd, const char *path)
 {
     /*
-     * Write a file to a socket
+     * Writes a file to a socket.
      */
     int CHUNK_SIZE = 500;
     char buf[CHUNK_SIZE];
@@ -103,7 +102,7 @@ int write_file(int sockfd, const char *path)
             report_error("could not read file");
             return -1;
         }
-        write(sockfd, buf, CHUNK_SIZE);
+        write(sockfd, buf, bytes_read);
     }
     while (bytes_read == CHUNK_SIZE);
 
@@ -117,31 +116,32 @@ char *get_type(const char *filename)
      * Defaults to text/html on errors.
      */
     char *extension, *type;
-    /* Read mimetypes if it hasn't been done already */
-    if (filetypes == NULL)
-    {
-        int fd = open("mimetypes", O_RDONLY);
-        if (fd < 0)
-        {
-            report_error("could not open 'mimetypes', defaulting to text/html");
-            return "text/html";
-        }
-        filetypes = init_ht();
-        /* Placeholder */
-        insert(filetypes, "html", "text/html");
-        insert(filetypes, "gif", "image/gif");
-        insert(filetypes, "mp3", "audio/mpeg");
-        insert(filetypes, "png", "image/png");
-    }
     extension = strrchr(filename, '.');
-    if (extension == NULL)
+    if (extension == NULL || filetypes == NULL)
     {
         return "text/html";
     }
     type = getval(filetypes, ++extension);
-    if (type)
+    return type? type: "text/html";
+}
+
+void init_types()
+{
+    /*
+     * Reads list of MIME types from "mimetypes" and generates a dictionary based on it.
+     * Currently it's hardcoded as a temporary placeholder.
+     * Maaaybe I'll actually write the code for this part in the future.
+     */
+    int fd = open("mimetypes", O_RDONLY);
+    if (fd < 0)
     {
-        return type;
+        report_error("could not open 'mimetypes', defaulting to text/html");
+        return;
     }
-    return "text/html";
+    filetypes = init_ht();
+    insert(filetypes, "html", "text/html");
+    insert(filetypes, "css", "text/css");
+    insert(filetypes, "gif", "image/gif");
+    insert(filetypes, "mp3", "audio/mpeg");
+    insert(filetypes, "png", "image/png");
 }

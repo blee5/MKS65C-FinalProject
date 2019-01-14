@@ -17,14 +17,14 @@
 
 int prep_resp(int sockfd, struct packet *request, struct packet *response)
 {
-    clear_packet(response);
-
     char buffer[255];
     long body_length;
     strcpy(response->file, "/www");
     strcat(response->file, request->file);
     int fd = open_file(response->file);
     
+    response->fields = init_ht();
+
     strcpy(response->version, "HTTP/1.1");
     if (fd < 0)
     {
@@ -32,7 +32,8 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
         {
             case -ENOENT:
                 strcpy(response->status, "404 Not Found");
-                strcpy(request->file, "error/404NotFound.html");
+                fd = open_file("/error/404NotFound.html");
+                strcpy(response->file, "/error/404NotFound.html");
                 insert(response->fields, "Content-Type", "text/html");
         }
     }
@@ -45,6 +46,7 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
     snprintf(buffer, 255, "%ld", body_length);
     insert(response->fields, "Content-Length", buffer);
     insert(response->fields, "Keep-Alive", "timeout=10");
+    close(fd);
     return 0;
 }
 
@@ -85,7 +87,7 @@ int parse_req(struct packet *p, char *request)
     char *temp;
 
     /* Clear any preexisting data  */
-    clear_packet(p);
+    p->fields = init_ht();
 
     struct hashtable *ht = p->fields;
 
@@ -131,5 +133,4 @@ void clear_packet(struct packet *p)
         free_ht(p->fields);
     }
     memset(p, 0, sizeof(struct packet));
-    p->fields = init_ht();
 }

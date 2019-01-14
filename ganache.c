@@ -18,6 +18,7 @@
 
 #include "ganache.h"
 #include "hashtable.h"
+#include "files.h"
 #include "requests.h"
 #include "util.h"
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv)
     int sockfd, connfd;
     char *port = "80";
 
+    init_types();
     signal(SIGCHLD, sighandler);
     if (argc > 1)
     {
@@ -147,5 +149,8 @@ void child_server(int sockfd)
 
         prep_resp(sockfd, &request, &response);
         send_resp(sockfd, &response);
+
+        clear_packet(&response);
+        clear_packet(&request);
     }
 }

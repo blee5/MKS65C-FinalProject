@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "hashtable.h"
+#include "util.h"
 
 /*
  * Size of internal array in hash table.
@@ -17,8 +18,12 @@
 
 struct hashtable *init_ht()
 {
-    // TODO: error handling if allocation fails
     struct hashtable *ht = malloc(sizeof(struct hashtable));
+    if (ht == NULL)
+    {
+        report_error("could not allocate memory");
+        exit(-1);
+    }
     ht->lists = calloc(sizeof(struct node*), DEF_SIZE);
     ht->size = DEF_SIZE;
     return ht;
