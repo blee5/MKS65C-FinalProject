@@ -13,7 +13,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "hashtable.h"
 #include "util.h"
+
+struct hashtable *filetypes = NULL;
 
 long open_file(const char *path)
 {
@@ -88,4 +91,40 @@ int read_file(int fd, char **dest)
     }
 
     return filesize;
+}
+
+char *get_type(const char *filename)
+{
+    /*
+     * Get content type of a file based on its extension.
+     * Defaults to text/html on errors.
+     */
+    char *extension, *type;
+    /* Read mimetypes if it hasn't been done already */
+    if (filetypes == NULL)
+    {
+        int fd = open("mimetypes", O_RDONLY);
+        if (fd < 0)
+        {
+            report_error("could not open 'mimetypes', defaulting to text/html");
+            return "text/html";
+        }
+        filetypes = init_ht();
+        /* Placeholder */
+        insert(filetypes, "html", "text/html");
+        insert(filetypes, "gif", "image/gif");
+        insert(filetypes, "mp3", "audio/mpeg");
+        insert(filetypes, "png", "image/png");
+    }
+    extension = strrchr(filename, '.');
+    if (extension == NULL)
+    {
+        return "text/html";
+    }
+    type = getval(filetypes, ++extension);
+    if (type)
+    {
+        return type;
+    }
+    return "text/html";
 }

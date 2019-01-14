@@ -44,6 +44,7 @@ int prep_resp(int sockfd, struct packet *request, struct packet *response)
     else
     {
         strcpy(response->status, "200 OK");
+        insert(response->fields, "Content-Type", get_type(request->file));
         load_body(response, fd);
     }
     insert(response->fields, "Keep-Alive", "timeout=10");
@@ -74,6 +75,7 @@ int send_resp(int sockfd, struct packet *response)
 
     write(sockfd, "\r\n", 2);
     write(sockfd, response->body, body_length);
+    free(response->body);
     printf("%s\n", response->status);
     return 0;
 }
